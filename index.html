@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>BAS Transformer Load Calculator v1.2.5</title>
+<title>BAS Transformer Load Calculator v1.2.8</title>
 <style>
 :root{--bg:#0e1114;--panel:#161b20;--line:#2a323a;--amber:#ffb000;--cyan:#27d3e6;--ok:#4cd964;--bad:#ff5a4d;--txt:#d7dde3;--dim:#8a96a3}
 *{box-sizing:border-box}
@@ -56,7 +56,7 @@ details summary{cursor:pointer;color:var(--cyan)}
 </head>
 <body>
 <h1>BAS TRANSFORMER LOAD CALCULATOR</h1>
-<div class="ver">v1.2.5 &middot; Class 2 / 24 VAC control transformer sizing &middot; library data 2026-11-04</div>
+<div class="ver">v1.2.8 &middot; Class 2 / 24 VAC control transformer sizing &middot; library data 2026-11-04</div>
 
 <div class="panel">
   <h2>0 &middot; Control line &amp; sizing method</h2>
@@ -160,11 +160,12 @@ details summary{cursor:pointer;color:var(--cyan)}
 
 <div class="row-actions">
   <button id="csvBtn">Export CSV</button>
+  <button id="xlsBtn">Export Excel</button>
   <button id="resetBtn">Reset</button>
 </div>
 
 <script>
-const VERSION='1.2.5';
+const VERSION='1.3.0';
 const COMMON_VA=[20,40,50,75,92,100,150,200,250,300,500];
 const $=id=>document.getElementById(id);
 const fmt=n=>(Math.round(n*100)/100).toString();
@@ -184,11 +185,11 @@ const CONTROLLERS=[
  {id:'dis-ecb453',mfr:'Distech',name:'ECB-453',typ:25,max:53,src:'ECB-400 datasheet',note:'Pair matches the ECL-400 datasheet.'},
  {id:'dis-ecb600',mfr:'Distech',name:'ECB-600 / 610',typ:22,max:65,sepRec:true,src:'ECB-600 datasheet',note:'Installation guide recommends a separate transformer for each ECB-600 and each ECx-400 module. Internal fuse 3.0 A. Pair matches the ECL-600 datasheet.'},
  {id:'dis-ecb650',mfr:'Distech',name:'ECB-650',typ:25,max:68,sepRec:true,src:'ECB-600 datasheet',note:'Separate transformer recommended (see ECB-600). Pair matches the ECL-600 datasheet.'},
- {id:'dis-ecb103',mfr:'Distech',name:'ECB-103',typ:10,max:85,src:'Distech install guide (vault note); ECL-103 datasheet lists the same',note:'85 VA max includes powered triac outputs: leaves little room on a 100 VA transformer.'},
- {id:'dis-ecbvav',mfr:'Distech',name:'ECB-VAV / ECB-VAVS',typ:4,max:75,src:'Distech install guide (vault note)',note:''},
- {id:'dis-ecbvavn',mfr:'Distech',name:'ECB-VAV-N',typ:10,max:85,src:'Distech install guide (vault note)',note:''},
- {id:'dis-ecx400',mfr:'Distech',name:'ECx-400 / 410 expansion module',typ:22,max:50,sepRec:true,src:'ECx-400 datasheet (vault note)',note:'For ECB-600 / ECL-600. Separate transformer per module recommended. Fuse 3.0 A.'},
- {id:'dis-ecx420',mfr:'Distech',name:'ECx-420 expansion module',typ:10,max:16,sepRec:true,src:'ECx-400 datasheet (vault note)',note:'Separate transformer per module recommended. Fuse 3.0 A.'},
+ {id:'dis-ecb103',mfr:'Distech',name:'ECB-103',typ:10,max:85,src:'ECB-103 datasheet (read)',note:'85 VA max includes powered triac outputs: leaves little room on a 100 VA transformer.'},
+ {id:'dis-ecbvav',mfr:'Distech',name:'ECB-VAV / ECB-VAVS',typ:4,max:75,src:'ECB-VAV and ECB-VAVS datasheets (read)',note:''},
+ {id:'dis-ecbvavn',mfr:'Distech',name:'ECB-VAV-N',typ:10,max:85,src:'ECB-VAV-N datasheet (read)',note:''},
+ {id:'dis-ecx400',mfr:'Distech',name:'ECx-400 / 410 expansion module',typ:22,max:50,sepRec:true,src:'ECx-400 datasheet (read)',note:'For ECB-600 / ECL-600. Separate transformer per module recommended. Fuse 3.0 A.'},
+ {id:'dis-ecx420',mfr:'Distech',name:'ECx-420 expansion module',typ:10,max:16,sepRec:true,src:'ECx-400 datasheet (read)',note:'Separate transformer per module recommended. Fuse 3.0 A.'},
  {id:'dis-ecl103',mfr:'Distech',name:'ECL-103',typ:10,max:85,src:'ECL-103 datasheet (vault note)',note:'85 VA max includes powered triac outputs. Fuse 2.0 A (3.0 A for triacs on internal supply).'},
  {id:'dis-ecl203',mfr:'Distech',name:'ECL-203',typ:14,max:23,src:'ECL-203 datasheet (vault note)',note:'Fuse 2.0 A.'},
  {id:'dis-ecl253',mfr:'Distech',name:'ECL-253',typ:17,max:26,src:'ECL-203 datasheet (vault note)',note:'Fuse 2.0 A.'},
@@ -227,12 +228,12 @@ const CONTROLLERS=[
  {id:'jci-xpm',mfr:'JCI',name:'Metasys XPM',typ:null,max:14,src:'Metasys LIT-12013105 (read)',note:'14 VA max, Class 2, 20-30 VAC. Excludes power to peripherals on BOs or COs, up to 12 VA each; up to 84 VA more at full output count.'}
 ];
 const PERIPHERALS=[
- {id:'idec-rv8h-ad24',line:'any',name:'IDEC RV8H-L-AD24 relay (24 VAC/DC coil)',va:0.33,calc:false,src:'IDEC RV8H datasheet: 13.7 mA, 0.33 W',note:'Datasheet gives W for the coil; treated as VA. SPDT 6 A.'},
- {id:'ribu1c',line:'any',name:'Functional Devices RIBU1C relay (24 VAC coil)',va:1.10,calc:true,src:'RIBU1C datasheet: 46 mA @ 24 VAC',note:'VA = 24 V x 46 mA. Pull-in 9 VAC, drop-out 2.1 VAC. 10 A SPDT.'},
- {id:'idec-rh2b',line:'any',name:'IDEC RH2B-ULAC24V relay (24 VAC coil, LED)',va:1.2,calc:false,src:'IDEC RH series coil table, 60 Hz',note:'1.4 VA @ 50 Hz; 50 mA @ 60 Hz, 153 ohm. DPDT 10 A. Table from an aggregator copy of the IDEC sheet.',verify:true},
- {id:'idec-rh1b',line:'any',name:'IDEC RH1B-UAC24V relay (24 VAC coil)',va:1.0,calc:false,src:'IDEC RH series coil table, 60 Hz',note:'1.1 VA @ 50 Hz; 37 mA @ 60 Hz, 300 ohm. SPDT 10 A. Table from an aggregator copy of the IDEC sheet.',verify:true},
- {id:'idec-rv8h-ad12',line:'any',name:'IDEC RV8H-L-AD12 relay (12 V coil)',va:0,dcmA:15.5,src:'IDEC RV8H datasheet: 12 V coil, 15.5 mA, 0.2 W',note:'NOT a 24 VAC load. Must be driven from a 12 VDC output; counted against the output current, not the transformer. Datasheet AC vs DC current column to be confirmed.',verify:true},
- {id:'ribxgta',line:'any',name:'Functional Devices RIBXGTA current switch',va:0,src:'RIBXGTA datasheet',note:'Self-powered split-core sensor; no supply VA stated. Output: solid-state SPST 30 VAC/DC, 0.4 A max.',verify:true},
+ {id:'idec-rv8h-ad24',line:'any',name:'IDEC RV8H-L-AD24 relay (24 VAC/DC coil)',va:0.33,calc:false,src:'IDEC RV8 datasheet (read): AC/DC coil 24 V, 13.7 mA, 0.33 W',note:'Datasheet gives W for the coil; treated as VA. SPDT 6 A.'},
+ {id:'ribu1c',line:'any',name:'Functional Devices RIBU1C relay (24 VAC coil)',va:1.10,calc:true,src:'Functional Devices RIBU1C datasheet (read): coil 46 mA @ 24 Vac',note:'VA calculated: 24 V x 46 mA (datasheet gives current only; other points: 33 mA @ 10 Vac, 35 mA @ 12 Vac, 55 mA @ 30 Vac). Coil 10-30 Vac/dc or 120 Vac. Pull-in 9 Vac, drop-out 2.1 Vac. 10 A SPDT.'},
+ {id:'idec-rh2b',line:'any',name:'IDEC RH2B-ULAC24V relay (24 VAC coil, LED)',va:1.2,calc:false,src:'IDEC RH series catalog RHSeries_us (read), 60 Hz',note:'Datasheet: DPDT 1.2 VA @ 60 Hz, 1.4 VA @ 50 Hz; 24 V coil 50 mA @ 60 Hz (60.5 mA @ 50 Hz), 152 ohm. DPDT 10 A.'},
+ {id:'idec-rh1b',line:'any',name:'IDEC RH1B-UAC24V relay (24 VAC coil)',va:1.0,calc:false,src:'IDEC RH series catalog RHSeries_us (read), 60 Hz',note:'Datasheet: SPDT 1.0 VA @ 60 Hz, 1.1 VA @ 50 Hz; 24 V coil 37 mA @ 60 Hz (42 mA @ 50 Hz), 300 ohm. SPDT 10 A.'},
+ {id:'idec-rv8h-ad12',line:'any',name:'IDEC RV8H-L-AD12 relay (12 V coil)',va:0,dcmA:15.5,src:'IDEC RV8 datasheet (read): AC/DC coil 12 V, 15.5 mA, 0.2 W',note:'NOT a 24 VAC load. Driven from a Distech UO in 12 VDC mode (confirmed by Chris); counted against the output current, not the transformer. Datasheet rated current 15.5 mA (AC/DC coil table; DC coil resistance 800 ohm gives 15 mA, AC 755 ohm), +/-15%.'},
+ {id:'ribxgta',line:'any',name:'Functional Devices RIBXGTA current switch',va:0,src:'Functional Devices RIBXG series datasheet (read)',note:'Split-core current switch. The datasheet lists no supply input or power consumption; the only electrical connection is the solid-state SPST sensor contact (30 Vac/dc, 0.4 A max, 1.6 V drop at 0.4 A). Entered as 0 VA on the transformer. Count the load the contact switches (e.g. a relay coil or controller input) as its own line.'},
  {id:'aci-dlp-420',line:'any',name:'ACI A/DLP-010-W-U-N-A-3 (4-20 mA output)',va:0.83,src:'ACI A/DLP data sheet: 24 mA min (0.83 VA)',note:'24 VAC +/-10%, 50/60 Hz. Use this entry for either output mode.'},
  {id:'aci-dlp-v',line:'any',name:'ACI A/DLP-010-W-U-N-A-3 (0-5/0-10 V output)',va:0.18,src:'ACI A/DLP data sheet: 6 mA max (0.18 VA)',note:'Only if wired for the voltage output.'},
  {id:'jci-cobo',line:'JCI',name:'JCI external CO/BO allowance (per output)',va:12,src:'Metasys LIT-1901107, LIT-1901108, LIT-12013105 (read)',note:'Peripheral devices on a CO or BO can consume up to 12 VA each. Use the real nameplate VA of the device when you know it.'}
@@ -290,8 +291,9 @@ function checks(loads,mfr,opt){
     if(!ecy.some(x=>/PS24/.test(x.name)))add('warn',l.name.replace(/\s*\(powered.*$/,'')+' needs an ECY-PS24 on the transformer. Add the ECY-PS24 power supply.');
     else add('info','ECY-S1000 uses 8.9 W of the ECY-PS24 30 W module budget. Check module count and 18 VDC loads in Distech Builder.');
   });
-  if(ctrls.some(l=>l.meta.mfr==='Honeywell')||mfr==='Honeywell')
-    add('info','Honeywell: Optimizer VAV and Unitary max VA exclude SSR (triac) output loads. Add each connected output load as its own line; the 100 VA UL limit includes them.');
+  if(ctrls.some(l=>l.meta.mfr==='Honeywell')||mfr==='Honeywell'){
+    add('info','Inrush (Honeywell datasheets): each SSR output is rated 1.5 A constant and 3.5 A inrush for 0.1 s. Check relay/contactor coil inrush against that rating.');
+    add('info','Honeywell: Optimizer VAV and Unitary max VA exclude SSR (triac) output loads. Add each connected output load as its own line; the 100 VA UL limit includes them.');}
   if(ctrls.some(l=>l.meta.mfr==='JCI')||mfr==='JCI')
     add('info','JCI: the controller VA excludes peripherals on COs and BOs, which can draw up to 12 VA each. Add each external CO/BO load as its own line (use the device nameplate VA when known).');
   live.filter(l=>l.meta&&l.meta.dcmA).forEach(l=>{
@@ -349,8 +351,12 @@ function fillLibrary(){
   const m=$('mfrSel').value;
   const cs=$('ctrlSel'),ps=$('perSel');
   cs.innerHTML='';ps.innerHTML='';
+  const grp={};
   CONTROLLERS.filter(c=>m==='Any'||c.mfr===m).forEach(c=>{
-    const o=new Option((m==='Any'?c.mfr+' ':'')+c.name+'  ('+(c.base?c.max+' VA allowance':c.needsPS?'18 VDC, 8.9 W':c.max+' VA max')+')'+(c.verify?'  [VERIFY]':''),c.id);cs.add(o)});
+    const g=c.mfr==='Distech'?(/^(ECB|ECL|ECx|ECY)/.exec(c.name)||[0,'Other'])[1].replace('ECx','ECx expansion')+(c.mfr==='Distech'?' (Distech)':''):c.mfr;
+    const o=new Option((m==='Any'?c.mfr+' ':'')+c.name+'  ('+(c.base?c.max+' VA allowance':c.needsPS?'18 VDC, 8.9 W':c.max+' VA max')+')'+(c.verify?'  [VERIFY]':''),c.id);
+    if(!grp[g]){grp[g]=document.createElement('optgroup');grp[g].label=g;cs.appendChild(grp[g])}
+    grp[g].appendChild(o)});
   PERIPHERALS.filter(p=>m==='Any'?p.line==='any':(p.line==='any'||p.line===m)).forEach(p=>{
     ps.add(new Option(p.name+'  ('+p.va+' VA)'+(p.verify?'  [VERIFY]':''),p.id))});
 }
@@ -435,6 +441,39 @@ $('csvBtn').onclick=()=>{
   c+=`\nConnected VA,${fmt(r.connected)}\nUsable VA,${fmt(r.usable)}\nRemaining VA,${fmt(r.remaining)}\nSecondary A,${fmt(r.amps)}\n`;
   checks(loads,$('mfrSel').value,{R,meth}).forEach(k=>c+=`${q(k.lvl.toUpperCase()+': '+k.msg)}\n`);
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download='transformer_load.csv';a.click();
+};
+
+/* minimal offline .xlsx writer (stored zip) */
+function crc32(b){let c,t=crc32.t;if(!t){t=crc32.t=[];for(let n=0;n<256;n++){c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}}
+  c=0xFFFFFFFF;for(let i=0;i<b.length;i++)c=t[(c^b[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0}
+function zipStore(files){const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  const u16=n=>[n&255,(n>>8)&255],u32=n=>[n&255,(n>>8)&255,(n>>16)&255,(n>>>24)&255];
+  files.forEach(f=>{const nm=enc.encode(f.n),d=enc.encode(f.d),crc=crc32(d);
+    const h=[0x50,0x4b,3,4,...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(d.length),...u32(d.length),...u16(nm.length),...u16(0)];
+    parts.push(new Uint8Array(h),nm,d);
+    cd.push(new Uint8Array([0x50,0x4b,1,2,...u16(20),...u16(20),...u16(0),...u16(0),...u16(0),...u16(0x21),...u32(crc),...u32(d.length),...u32(d.length),...u16(nm.length),...u16(0),...u16(0),...u16(0),...u16(0),...u32(0),...u32(off)]),nm);
+    off+=h.length+nm.length+d.length});
+  let cs=0;cd.forEach(x=>cs+=x.length);
+  const end=new Uint8Array([0x50,0x4b,5,6,0,0,0,0,...u16(files.length),...u16(files.length),...u32(cs),...u32(off),0,0]);
+  return new Blob([...parts,...cd,end],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'})}
+function xlsxBlob(rows){const x=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const col=i=>String.fromCharCode(65+i);
+  const sd=rows.map((r,i)=>'<row r="'+(i+1)+'">'+r.map((v,j)=>v===''||v==null?'':(typeof v==='number'&&isFinite(v)?'<c r="'+col(j)+(i+1)+'"><v>'+v+'</v></c>':'<c r="'+col(j)+(i+1)+'" t="inlineStr"><is><t>'+x(v)+'</t></is></c>')).join('')+'</row>').join('');
+  return zipStore([
+   {n:'[Content_Types].xml',d:'<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'},
+   {n:'_rels/.rels',d:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+   {n:'xl/workbook.xml',d:'<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Load" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+   {n:'xl/_rels/workbook.xml.rels',d:'<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'},
+   {n:'xl/worksheets/sheet1.xml',d:'<?xml version="1.0" encoding="UTF-8"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><cols><col min="1" max="1" width="48" customWidth="1"/><col min="2" max="5" width="14" customWidth="1"/></cols><sheetData>'+sd+'</sheetData></worksheet>'}])}
+$('xlsBtn').onclick=()=>{
+  const R=rating(),loads=getLoads(),meth=$('methSel').value,P=effPct(meth,R,parseFloat($('maxPct').value)||0);
+  loads.forEach(l=>{l.w=(meth==='ecy13'&&!(l.meta&&l.meta.base))?1.3:1});
+  const r=calc({rating:R,volts:parseFloat($('volts').value)||0,pct:P,loads});
+  const rows=[['Tool','BAS Transformer Load Calculator v'+VERSION],['Control line',$('mfrSel').value],['Sizing method',meth],['Transformer VA',R],['Secondary V',parseFloat($('volts').value)||0],['Effective max loading %',+fmt(P)],[],['Device','VA each','Qty','Total VA','Flags']];
+  loads.forEach(l=>{const f=l.meta?[l.meta.verify?'VERIFY':'',l.meta.calc?'CALC':'',l.meta.dcmA?'12VDC':''].filter(Boolean).join(' '):'';rows.push([l.name,l.va,l.qty,l.va*l.qty,f])});
+  rows.push([],['Connected VA',+fmt(r.connected)],['Usable VA',+fmt(r.usable)],['Remaining VA',+fmt(r.remaining)],['Secondary A',+fmt(r.amps)]);
+  checks(loads,$('mfrSel').value,{R,meth}).forEach(k=>rows.push([k.lvl.toUpperCase()+': '+k.msg]));
+  const a=document.createElement('a');a.href=URL.createObjectURL(xlsxBlob(rows));a.download='transformer_load.xlsx';a.click();
 };
 /* library table */
 (function(){
