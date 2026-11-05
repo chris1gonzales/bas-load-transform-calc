@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>BAS Transformer Load Calculator v1.2.3</title>
+<title>BAS Transformer Load Calculator v1.2.5</title>
 <style>
 :root{--bg:#0e1114;--panel:#161b20;--line:#2a323a;--amber:#ffb000;--cyan:#27d3e6;--ok:#4cd964;--bad:#ff5a4d;--txt:#d7dde3;--dim:#8a96a3}
 *{box-sizing:border-box}
@@ -56,7 +56,7 @@ details summary{cursor:pointer;color:var(--cyan)}
 </head>
 <body>
 <h1>BAS TRANSFORMER LOAD CALCULATOR</h1>
-<div class="ver">v1.2.3 &middot; Class 2 / 24 VAC control transformer sizing &middot; library data 2026-11-04</div>
+<div class="ver">v1.2.5 &middot; Class 2 / 24 VAC control transformer sizing &middot; library data 2026-11-04</div>
 
 <div class="panel">
   <h2>0 &middot; Control line &amp; sizing method</h2>
@@ -164,7 +164,7 @@ details summary{cursor:pointer;color:var(--cyan)}
 </div>
 
 <script>
-const VERSION='1.2.3';
+const VERSION='1.2.5';
 const COMMON_VA=[20,40,50,75,92,100,150,200,250,300,500];
 const $=id=>document.getElementById(id);
 const fmt=n=>(Math.round(n*100)/100).toString();
@@ -216,15 +216,15 @@ const CONTROLLERS=[
  {id:'hon-optvav-ms',mfr:'Honeywell',name:'Optimizer VAV (MS/TP)',typ:15.33,max:22,src:'Honeywell Optimizer VAV datasheet 31-00724 (read)',note:'Datasheet: 15.33 VA nominal (controller and actuator, nothing on IO), 22 VA max including external loads, Sylk, comms, BLE, UIO and 20 VDC output, excluding SSR loads (add each output load as its own line). Replaces the earlier 30 VA figure, which came from a ComfortPoint Open sheet.'},
  {id:'hon-optvav-t1l75',mfr:'Honeywell',name:'Optimizer VAV (T1L, VA75 models)',typ:8,max:25,src:'Honeywell 31-00724-02',note:'Max excludes SSR loads.'},
  {id:'hon-optvav-t1l00',mfr:'Honeywell',name:'Optimizer VAV (T1L, VA00TB)',typ:6.5,max:14,src:'Honeywell 31-00724-02',note:'Max excludes SSR loads.'},
- {id:'hon-spvav-ip',mfr:'Honeywell',name:'Spyder M7 VAV (IP)',typ:8,max:30,src:'Honeywell 31-00471',note:''},
- {id:'hon-spvav-ms',mfr:'Honeywell',name:'Spyder M7 VAV (MS/TP)',typ:6,max:22,src:'Honeywell 31-00471',note:''},
+ {id:'hon-spvav-ip',mfr:'Honeywell',name:'Spyder M7 VAV (IP)',typ:8,max:30,src:'Spyder Model 7 VAV datasheet 31-00471 (read)',note:'Datasheet: IP 8 VA nominal / 30 VA full load. Full load includes external loads, Sylk, comms, BLE, UIO and 20 VDC output, excluding SSR loads. Class 2, 20-30 VAC.'},
+ {id:'hon-spvav-ms',mfr:'Honeywell',name:'Spyder M7 VAV (MS/TP)',typ:6,max:22,src:'Spyder Model 7 VAV datasheet 31-00471 (read)',note:'Datasheet: MS/TP 6 VA nominal / 22 VA full load, excluding SSR loads. Class 2, 20-30 VAC.'},
  {id:'hon-optuni',mfr:'Honeywell',name:'Optimizer Unitary',typ:8,max:30,src:'Honeywell Optimizer Unitary datasheet 31-00613 (read)',note:'Datasheet: 8 VA nominal, 30 VA full load (IP, MS/TP, T1L), excluding SSR and relay loads. Aux outputs 1 x 300 mA + 3 x 75 mA.'},
- {id:'hon-pubpvb',mfr:'Honeywell',name:'Spyder PUB / PVB (controller only)',typ:null,max:5,src:'Spyder BACnet PUB/PVB sheet (vault note)',note:'5 VA max controller alone; 9 VA max listed with an actuator. Add actuators as separate lines.'},
+ {id:'hon-pubpvb',mfr:'Honeywell',name:'Spyder PUB / PVB (controller only)',typ:null,max:5,src:'Spyder BACnet spec 63-1328 and install data 62-0310 (read)',note:'5 VA max controller alone (PUB1012S, PUB4024S, PUB6438S, PVB6438NS); 9 VA max controller plus integral actuator (PVB6436AS). 100 VA limit covers the controller and all connected loads. More than one controller may share a transformer if total draw incl. accessories stays at or under 100 VA (U.S.); keep COM polarity consistent and ground the COM leg. Add external actuators and loads as separate lines.'},
  /* JCI Metasys: values from vault note only */
- {id:'jci-cgm',mfr:'JCI',name:'Metasys CGM',typ:null,max:14,verify:true,src:'Vault wiring note (not checked vs PDF)',note:'+12 VA per external CO/BO (see peripherals).'},
- {id:'jci-cge',mfr:'JCI',name:'Metasys CGE',typ:null,max:15,verify:true,src:'Vault wiring note (not checked vs PDF)',note:'+12 VA per external CO/BO.'},
- {id:'jci-cv',mfr:'JCI',name:'Metasys CV',typ:10,max:14,verify:true,src:'Vault wiring note (not checked vs PDF)',note:'+12 VA per external CO/BO.'},
- {id:'jci-xpm',mfr:'JCI',name:'Metasys XPM',typ:null,max:14,verify:true,src:'Vault wiring note (flagged VERIFY there)',note:''}
+ {id:'jci-cgm',mfr:'JCI',name:'Metasys CGM',typ:null,max:14,src:'Metasys LIT-1901108 and LIT-12013105 (read)',note:'14 VA max, Class 2, 20-30 VAC. Johnson Controls states the VA rating excludes power to peripheral devices on COs or BOs, which can consume up to 12 VA each; up to 84 VA more at full output count. Add each external CO/BO load as its own line.'},
+ {id:'jci-cge',mfr:'JCI',name:'Metasys CGE',typ:null,max:15,src:'Metasys LIT-1901108 and LIT-12013105 (read)',note:'15 VA max, Class 2, 20-30 VAC. Johnson Controls states the VA rating excludes power to peripheral devices on COs or BOs, which can consume up to 12 VA each; up to 84 VA more at full output count.'},
+ {id:'jci-cv',mfr:'JCI',name:'Metasys CV',typ:10,max:14,src:'Metasys LIT-1901107 and LIT-12013105 (read)',note:'10 VA typical, 14 VA max, Class 2, 20-30 VAC. Johnson Controls states the VA rating excludes power to peripheral devices on COs or BOs, which can consume up to 12 VA each; up to 60 VA more at full output count.'},
+ {id:'jci-xpm',mfr:'JCI',name:'Metasys XPM',typ:null,max:14,src:'Metasys LIT-12013105 (read)',note:'14 VA max, Class 2, 20-30 VAC. Excludes power to peripherals on BOs or COs, up to 12 VA each; up to 84 VA more at full output count.'}
 ];
 const PERIPHERALS=[
  {id:'idec-rv8h-ad24',line:'any',name:'IDEC RV8H-L-AD24 relay (24 VAC/DC coil)',va:0.33,calc:false,src:'IDEC RV8H datasheet: 13.7 mA, 0.33 W',note:'Datasheet gives W for the coil; treated as VA. SPDT 6 A.'},
@@ -235,7 +235,7 @@ const PERIPHERALS=[
  {id:'ribxgta',line:'any',name:'Functional Devices RIBXGTA current switch',va:0,src:'RIBXGTA datasheet',note:'Self-powered split-core sensor; no supply VA stated. Output: solid-state SPST 30 VAC/DC, 0.4 A max.',verify:true},
  {id:'aci-dlp-420',line:'any',name:'ACI A/DLP-010-W-U-N-A-3 (4-20 mA output)',va:0.83,src:'ACI A/DLP data sheet: 24 mA min (0.83 VA)',note:'24 VAC +/-10%, 50/60 Hz. Use this entry for either output mode.'},
  {id:'aci-dlp-v',line:'any',name:'ACI A/DLP-010-W-U-N-A-3 (0-5/0-10 V output)',va:0.18,src:'ACI A/DLP data sheet: 6 mA max (0.18 VA)',note:'Only if wired for the voltage output.'},
- {id:'jci-cobo',line:'JCI',name:'JCI external CO/BO allowance (per output)',va:12,src:'Vault wiring note (not checked vs PDF)',note:'Allowance added per external CO/BO load.',verify:true}
+ {id:'jci-cobo',line:'JCI',name:'JCI external CO/BO allowance (per output)',va:12,src:'Metasys LIT-1901107, LIT-1901108, LIT-12013105 (read)',note:'Peripheral devices on a CO or BO can consume up to 12 VA each. Use the real nameplate VA of the device when you know it.'}
 ];
 const DEFAULT_METHOD={Any:'flat',Distech:'distech13',Honeywell:'cap100',JCI:'flat'};
 const ECY_RULE_VA=100;
@@ -293,7 +293,7 @@ function checks(loads,mfr,opt){
   if(ctrls.some(l=>l.meta.mfr==='Honeywell')||mfr==='Honeywell')
     add('info','Honeywell: Optimizer VAV and Unitary max VA exclude SSR (triac) output loads. Add each connected output load as its own line; the 100 VA UL limit includes them.');
   if(ctrls.some(l=>l.meta.mfr==='JCI')||mfr==='JCI')
-    add('info','JCI: add the per-output allowance line for every external CO/BO. JCI controller figures here come from vault notes, not datasheets.');
+    add('info','JCI: the controller VA excludes peripherals on COs and BOs, which can draw up to 12 VA each. Add each external CO/BO load as its own line (use the device nameplate VA when known).');
   live.filter(l=>l.meta&&l.meta.dcmA).forEach(l=>{
     const per=Math.floor(DIST_UO_MA/l.meta.dcmA+1e-9);
     add('warn',l.name+' x'+l.qty+': draws '+l.meta.dcmA+' mA each from a 12 VDC output, 0 VA on the transformer. A Distech UO is limited to '+DIST_UO_MA+' mA, so at most '+per+' per output. Confirm the driving output before using this relay.');
