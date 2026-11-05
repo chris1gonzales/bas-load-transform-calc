@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>BAS Transformer Load Calculator v1.1.1</title>
+<title>BAS Transformer Load Calculator v1.2.3</title>
 <style>
 :root{--bg:#0e1114;--panel:#161b20;--line:#2a323a;--amber:#ffb000;--cyan:#27d3e6;--ok:#4cd964;--bad:#ff5a4d;--txt:#d7dde3;--dim:#8a96a3}
 *{box-sizing:border-box}
@@ -56,7 +56,7 @@ details summary{cursor:pointer;color:var(--cyan)}
 </head>
 <body>
 <h1>BAS TRANSFORMER LOAD CALCULATOR</h1>
-<div class="ver">v1.1.1 &middot; Class 2 / 24 VAC control transformer sizing &middot; library data 2026-11-04</div>
+<div class="ver">v1.2.3 &middot; Class 2 / 24 VAC control transformer sizing &middot; library data 2026-11-04</div>
 
 <div class="panel">
   <h2>0 &middot; Control line &amp; sizing method</h2>
@@ -66,11 +66,12 @@ details summary{cursor:pointer;color:var(--cyan)}
     <div><label>Sizing method</label>
       <select id="methSel">
         <option value="flat">Flat margin (set % below)</option>
-        <option value="distech13">Distech: &Sigma; max VA &times; 1.3 &le; 100 VA</option>
+        <option value="distech13">Distech ECB / ECL: &Sigma; max VA &times; 1.3 &le; 100 VA</option>
+        <option value="ecy13">Distech ECY / ECY-PS24: controller allowance + 1.3 &times; other loads &le; 100 VA</option>
         <option value="cap100">100 VA UL cap: &Sigma; max VA &le; 100 VA</option>
       </select></div>
   </div>
-  <div class="note" style="margin-top:8px">Defaults follow the control line: Distech &rarr; 1.3&times; rule, Honeywell &rarr; 100 VA cap, JCI/Any &rarr; flat margin. Controllers use <b>maximum</b> VA from the library. You can change the method at any time.</div>
+  <div class="note" style="margin-top:8px">Defaults follow the control line: Distech &rarr; ECB/ECL 1.3&times; rule (switches to the ECY rule when you add an ECY controller), Honeywell &rarr; 100 VA cap, JCI/Any &rarr; flat margin. Controllers use <b>maximum</b> VA from the library. You can change the method at any time.</div>
 </div>
 
 <div class="panel">
@@ -163,7 +164,7 @@ details summary{cursor:pointer;color:var(--cyan)}
 </div>
 
 <script>
-const VERSION='1.1.1';
+const VERSION='1.2.3';
 const COMMON_VA=[20,40,50,75,92,100,150,200,250,300,500];
 const $=id=>document.getElementById(id);
 const fmt=n=>(Math.round(n*100)/100).toString();
@@ -172,28 +173,52 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 /* ---------- LIBRARY (every value traced to its source; verify:true = unconfirmed/conflicting) ---------- */
 const ECBX='Typ/max pairing recovered from scrambled PDF text; confirm against the PDF.';
 const CONTROLLERS=[
- /* Distech: sizing rule = sum max VA of controller + all external loads (incl. Allure sensors) x 1.3, <= 100 VA */
- {id:'dis-ecb203',mfr:'Distech',name:'ECB-203',typ:14,max:23,verify:true,src:'ECB-203 SP datasheet',note:'Internal fuse 2.0 A. '+ECBX},
- {id:'dis-ecb253',mfr:'Distech',name:'ECB-253',typ:17,max:26,verify:true,src:'ECB-203 SP datasheet',note:'Internal fuse 2.0 A. '+ECBX},
- {id:'dis-ecb300',mfr:'Distech',name:'ECB-300',typ:16,max:38,verify:true,src:'ECB-300 SP datasheet',note:'Internal fuse 3.0 A. '+ECBX},
- {id:'dis-ecb350',mfr:'Distech',name:'ECB-350',typ:19,max:41,verify:true,src:'ECB-300 SP datasheet',note:'Internal fuse 3.0 A. '+ECBX},
- {id:'dis-ecb400',mfr:'Distech',name:'ECB-400 / 410',typ:22,max:60,verify:true,sep:true,src:'ECB-400 SP datasheet',note:'Own transformer required. Internal fuse 3.0 A. '+ECBX},
- {id:'dis-ecb403',mfr:'Distech',name:'ECB-403 / 413',typ:22,max:50,verify:true,sep:true,src:'ECB-400 SP datasheet',note:'Own transformer required. '+ECBX},
- {id:'dis-ecb450',mfr:'Distech',name:'ECB-450',typ:25,max:63,verify:true,sep:true,src:'ECB-400 SP datasheet',note:'Own transformer required. '+ECBX},
- {id:'dis-ecb453',mfr:'Distech',name:'ECB-453',typ:25,max:53,verify:true,sep:true,src:'ECB-400 SP datasheet',note:'Own transformer required. '+ECBX},
- {id:'dis-ecb600',mfr:'Distech',name:'ECB-600 / 610',typ:22,max:65,verify:true,sep:true,src:'ECB-600 SP datasheet',note:'Own transformer required. Internal fuse 3.0 A. '+ECBX},
- {id:'dis-ecb650',mfr:'Distech',name:'ECB-650',typ:25,max:68,verify:true,sep:true,src:'ECB-600 SP datasheet',note:'Own transformer required. '+ECBX},
- {id:'dis-ecb103',mfr:'Distech',name:'ECB-103',typ:10,max:85,src:'Distech install guide (vault note)',note:'Max 85 VA is high: leaves little room on a 100 VA transformer.'},
+ /* Distech ECB / ECL: sizing rule = (sum of max VA of controllers + all external loads incl. Allure sensors) x 1.3 <= 100 VA (ECB/ECL installation guides) */
+ {id:'dis-ecb203',mfr:'Distech',name:'ECB-203',typ:14,max:23,src:'ECB-203 datasheet',note:'Internal fuse 2.0 A.'},
+ {id:'dis-ecb253',mfr:'Distech',name:'ECB-253',typ:17,max:26,src:'ECB-203 datasheet',note:'Internal fuse 2.0 A.'},
+ {id:'dis-ecb300',mfr:'Distech',name:'ECB-300',typ:16,max:38,src:'ECB-300 datasheet',note:'Internal fuse 3.0 A.'},
+ {id:'dis-ecb350',mfr:'Distech',name:'ECB-350',typ:19,max:41,src:'ECB-300 datasheet',note:'Internal fuse 3.0 A.'},
+ {id:'dis-ecb400',mfr:'Distech',name:'ECB-400 / 410',typ:22,max:60,src:'ECB-400 datasheet',note:'Internal fuse 3.0 A. Pair matches the ECL-400 datasheet.'},
+ {id:'dis-ecb403',mfr:'Distech',name:'ECB-403 / 413',typ:22,max:50,src:'ECB-400 datasheet',note:'Pair matches the ECL-400 datasheet.'},
+ {id:'dis-ecb450',mfr:'Distech',name:'ECB-450',typ:25,max:63,src:'ECB-400 datasheet',note:'Pair matches the ECL-400 datasheet.'},
+ {id:'dis-ecb453',mfr:'Distech',name:'ECB-453',typ:25,max:53,src:'ECB-400 datasheet',note:'Pair matches the ECL-400 datasheet.'},
+ {id:'dis-ecb600',mfr:'Distech',name:'ECB-600 / 610',typ:22,max:65,sepRec:true,src:'ECB-600 datasheet',note:'Installation guide recommends a separate transformer for each ECB-600 and each ECx-400 module. Internal fuse 3.0 A. Pair matches the ECL-600 datasheet.'},
+ {id:'dis-ecb650',mfr:'Distech',name:'ECB-650',typ:25,max:68,sepRec:true,src:'ECB-600 datasheet',note:'Separate transformer recommended (see ECB-600). Pair matches the ECL-600 datasheet.'},
+ {id:'dis-ecb103',mfr:'Distech',name:'ECB-103',typ:10,max:85,src:'Distech install guide (vault note); ECL-103 datasheet lists the same',note:'85 VA max includes powered triac outputs: leaves little room on a 100 VA transformer.'},
  {id:'dis-ecbvav',mfr:'Distech',name:'ECB-VAV / ECB-VAVS',typ:4,max:75,src:'Distech install guide (vault note)',note:''},
  {id:'dis-ecbvavn',mfr:'Distech',name:'ECB-VAV-N',typ:10,max:85,src:'Distech install guide (vault note)',note:''},
+ {id:'dis-ecx400',mfr:'Distech',name:'ECx-400 / 410 expansion module',typ:22,max:50,sepRec:true,src:'ECx-400 datasheet (vault note)',note:'For ECB-600 / ECL-600. Separate transformer per module recommended. Fuse 3.0 A.'},
+ {id:'dis-ecx420',mfr:'Distech',name:'ECx-420 expansion module',typ:10,max:16,sepRec:true,src:'ECx-400 datasheet (vault note)',note:'Separate transformer per module recommended. Fuse 3.0 A.'},
+ {id:'dis-ecl103',mfr:'Distech',name:'ECL-103',typ:10,max:85,src:'ECL-103 datasheet (vault note)',note:'85 VA max includes powered triac outputs. Fuse 2.0 A (3.0 A for triacs on internal supply).'},
+ {id:'dis-ecl203',mfr:'Distech',name:'ECL-203',typ:14,max:23,src:'ECL-203 datasheet (vault note)',note:'Fuse 2.0 A.'},
+ {id:'dis-ecl253',mfr:'Distech',name:'ECL-253',typ:17,max:26,src:'ECL-203 datasheet (vault note)',note:'Fuse 2.0 A.'},
+ {id:'dis-ecl300',mfr:'Distech',name:'ECL-300',typ:16,max:38,src:'ECL-300 datasheet (vault note)',note:'Fuse 3.0 A.'},
+ {id:'dis-ecl350',mfr:'Distech',name:'ECL-350',typ:19,max:41,src:'ECL-300 datasheet (vault note)',note:'Fuse 3.0 A.'},
+ {id:'dis-ecl400',mfr:'Distech',name:'ECL-400 / 410',typ:22,max:60,src:'ECL-400 datasheet (vault note)',note:'Fuse 3.0 A.'},
+ {id:'dis-ecl403',mfr:'Distech',name:'ECL-403 / 413',typ:22,max:50,src:'ECL-400 datasheet (vault note)',note:'Fuse 3.0 A.'},
+ {id:'dis-ecl450',mfr:'Distech',name:'ECL-450',typ:25,max:63,src:'ECL-400 datasheet (vault note)',note:'Fuse 3.0 A.'},
+ {id:'dis-ecl453',mfr:'Distech',name:'ECL-453',typ:25,max:53,src:'ECL-400 datasheet (vault note)',note:'Fuse 3.0 A.'},
+ {id:'dis-ecl600',mfr:'Distech',name:'ECL-600 / 610',typ:22,max:65,sepRec:true,src:'ECL-600 datasheet (vault note)',note:'ECL guide: one transformer per ECL-600 and per ECx-400 module recommended. Fuse 3.0 A.'},
+ {id:'dis-ecl650',mfr:'Distech',name:'ECL-650',typ:25,max:68,sepRec:true,src:'ECL-600 datasheet (vault note)',note:'Separate transformer recommended (see ECL-600). Fuse 3.0 A.'},
+ /* Distech Eclypse (ECY): installation guides: separate transformer per controller, >= 60 VA; sizing = controller allowance (75 VA) + 1.3 x other 24 VAC loads <= 100 VA.
+    "max" below is the allowance used in the sizing rule, not the datasheet draw. Datasheet: 12 VA typ no load; 60 VA max (103/203/300) or 100 VA max (400/600) incl. external loads. Internal fuse 4 A. */
+ {id:'dis-ecy103',mfr:'Distech',name:'ECY-103',typ:12,max:75,base:true,fam:'ecy',minXfmr:60,src:'ECY-203 install guide (read); ECY-103 datasheet (vault note)',note:'Allowance 75 VA per install guide. Datasheet: 12 VA typ, 60 VA max incl. external loads. Fuse 4 A.'},
+ {id:'dis-ecy203',mfr:'Distech',name:'ECY-203 / 253',typ:12,max:75,base:true,fam:'ecy',minXfmr:60,src:'ECY-203 install guide (read); ECY-203 datasheet (vault note)',note:'Allowance 75 VA. Datasheet: 12 VA typ, 60 VA max incl. external loads. Fuse 4 A.'},
+ {id:'dis-ecy300',mfr:'Distech',name:'ECY-300 / 350',typ:12,max:75,base:true,fam:'ecy',minXfmr:60,src:'ECY install guide (vault note); ECY-300 datasheet (vault note)',note:'Allowance 75 VA. Datasheet: 12 VA typ, 60 VA max incl. external loads. Fuse 4 A.'},
+ {id:'dis-ecy400',mfr:'Distech',name:'ECY-400 / 450',typ:12,max:75,base:true,fam:'ecy',minXfmr:60,src:'ECY install guide (vault note); ECY-400 datasheet (vault note)',note:'Allowance 75 VA. Datasheet: 12 VA typ, 100 VA max incl. external loads. Fuse 4 A.'},
+ {id:'dis-ecy600',mfr:'Distech',name:'ECY-600 / 650',typ:12,max:75,base:true,fam:'ecy',minXfmr:60,src:'ECY-600 install guide (vault note); ECY-600 datasheet (vault note)',note:'Allowance 75 VA. Datasheet: 12 VA typ, 100 VA max incl. internal and external loads. Fuse 4 A. Add an ECY-PS24 if the integrated supply is exceeded by modules.'},
+ {id:'dis-ecy303',mfr:'Distech',name:'ECY-303',typ:18,max:50,base:true,fam:'ecy',minXfmr:50,src:'ECY-303 install guide (vault note)',note:'Allowance 50 VA (rule: 50 VA + 1.3 x external 24 VAC loads <= 100 VA; 50 to 100 VA transformer). Datasheet: 18 VA nominal, 36 VA full load, external loads excluded. Fuse 2 A fast-acting.'},
+ {id:'dis-ecyvav',mfr:'Distech',name:'ECY-VAV',typ:7,max:20,fam:'ecyvav',src:'ECY-VAV datasheet (read) and ECY-VAV install guide (read)',note:'Datasheet: 7 VA nominal, 20 VA full load, external 24 VAC loads excluded. Install guide: add all external loads (incl. subnet modules such as Allure sensors) to the controller consumption, Class 2 100 VA max, no 1.3x multiplier stated. One controller per transformer recommended. Daisy-chaining power is not permitted when controller plus external loads exceeds 15 VA (star wiring then). Fuse 4 A max external; controller fuse 3 A fast-acting. Distech provides a VAV-Smart Room Control Device Calculator. ECY-VAV-PoE is powered over Ethernet and is not a transformer load.'},
+ {id:'dis-ecyps24',mfr:'Distech',name:'ECY-PS24 power supply (for ECY-S1000 and I/O modules)',typ:null,max:60,base:true,fam:'ecy',minXfmr:60,src:'ECY-CSC install guide (read)',note:'Allowance 60 VA (rule: 60 VA + 1.3 x other 24 VAC loads <= 100 VA; 60 to 100 VA transformer, separate per ECY-PS24). Supplies up to 30 W to modules on its right.'},
+ {id:'dis-ecys1000',mfr:'Distech',name:'ECY-S1000 (powered by ECY-PS24)',typ:null,max:0,kind:'module',needsPS:true,src:'ECY-S1000 datasheet (read): 18 VDC, 8.9 W, external loads excluded',note:'Not a direct 24 VAC load: it takes 8.9 W of the ECY-PS24 30 W budget. Counted as 0 VA here because the ECY-PS24 allowance covers it.'},
  /* Honeywell: UL 100 VA cap; controller max VA EXCLUDES SSR loads on Optimizer VAV / Unitary */
  {id:'hon-optvav-ip',mfr:'Honeywell',name:'Optimizer VAV (IP)',typ:14.53,max:30,src:'Honeywell 31-00724-02',note:'Max excludes SSR loads (add each output load as its own line).'},
- {id:'hon-optvav-ms',mfr:'Honeywell',name:'Optimizer VAV (MS/TP)',typ:15.33,max:30,verify:true,src:'31-00724-02 / ComfortPoint Open sheet',note:'SOURCES CONFLICT: Optimizer sheet 22 VA max, ComfortPoint Open 30 VA max; nominal 15.33 vs 6.24 vs Spyder 6. 30 VA used (conservative). Max excludes SSR loads.'},
+ {id:'hon-optvav-ms',mfr:'Honeywell',name:'Optimizer VAV (MS/TP)',typ:15.33,max:22,src:'Honeywell Optimizer VAV datasheet 31-00724 (read)',note:'Datasheet: 15.33 VA nominal (controller and actuator, nothing on IO), 22 VA max including external loads, Sylk, comms, BLE, UIO and 20 VDC output, excluding SSR loads (add each output load as its own line). Replaces the earlier 30 VA figure, which came from a ComfortPoint Open sheet.'},
  {id:'hon-optvav-t1l75',mfr:'Honeywell',name:'Optimizer VAV (T1L, VA75 models)',typ:8,max:25,src:'Honeywell 31-00724-02',note:'Max excludes SSR loads.'},
  {id:'hon-optvav-t1l00',mfr:'Honeywell',name:'Optimizer VAV (T1L, VA00TB)',typ:6.5,max:14,src:'Honeywell 31-00724-02',note:'Max excludes SSR loads.'},
  {id:'hon-spvav-ip',mfr:'Honeywell',name:'Spyder M7 VAV (IP)',typ:8,max:30,src:'Honeywell 31-00471',note:''},
  {id:'hon-spvav-ms',mfr:'Honeywell',name:'Spyder M7 VAV (MS/TP)',typ:6,max:22,src:'Honeywell 31-00471',note:''},
- {id:'hon-optuni',mfr:'Honeywell',name:'Optimizer Unitary',typ:8,max:30,src:'Honeywell 31-00614-01',note:'Max excludes SSR / relay loads. Aux outputs 1 x 300 mA + 3 x 75 mA.'},
+ {id:'hon-optuni',mfr:'Honeywell',name:'Optimizer Unitary',typ:8,max:30,src:'Honeywell Optimizer Unitary datasheet 31-00613 (read)',note:'Datasheet: 8 VA nominal, 30 VA full load (IP, MS/TP, T1L), excluding SSR and relay loads. Aux outputs 1 x 300 mA + 3 x 75 mA.'},
  {id:'hon-pubpvb',mfr:'Honeywell',name:'Spyder PUB / PVB (controller only)',typ:null,max:5,src:'Spyder BACnet PUB/PVB sheet (vault note)',note:'5 VA max controller alone; 9 VA max listed with an actuator. Add actuators as separate lines.'},
  /* JCI Metasys: values from vault note only */
  {id:'jci-cgm',mfr:'JCI',name:'Metasys CGM',typ:null,max:14,verify:true,src:'Vault wiring note (not checked vs PDF)',note:'+12 VA per external CO/BO (see peripherals).'},
@@ -213,24 +238,28 @@ const PERIPHERALS=[
  {id:'jci-cobo',line:'JCI',name:'JCI external CO/BO allowance (per output)',va:12,src:'Vault wiring note (not checked vs PDF)',note:'Allowance added per external CO/BO load.',verify:true}
 ];
 const DEFAULT_METHOD={Any:'flat',Distech:'distech13',Honeywell:'cap100',JCI:'flat'};
+const ECY_RULE_VA=100;
 const DIST_UO_MA=60;
 
 /* ---------- pure calc ---------- */
 function effPct(method,R,pct){
   if(!(R>0))return 0;
   if(method==='distech13')return Math.min(R,100)/1.3/R*100;
-  if(method==='cap100')return Math.min(R,100)/R*100;
+  if(method==='cap100'||method==='ecy13')return Math.min(R,100)/R*100;
   return pct;
 }
 function calc({rating,volts,pct,loads}){
-  const connected=loads.reduce((s,l)=>s+l.va*l.qty,0);
+  /* l.w = weight applied to this load in the sizing rule (default 1; ECY rule weights non-allowance loads 1.3) */
+  const connected=loads.reduce((s,l)=>s+l.va*l.qty*(l.w==null?1:l.w),0);
+  const raw=loads.reduce((s,l)=>s+l.va*l.qty,0);
   const usable=rating*pct/100;
-  return {connected,usable,remaining:usable-connected,amps:volts>0?connected/volts:0,
+  return {connected,raw,usable,remaining:usable-connected,amps:volts>0?raw/volts:0,
           loadPct:rating>0?connected/rating*100:0,over:connected>usable+1e-9,overRating:connected>rating+1e-9};
 }
 function maxFit(usable,other,va){ if(!(va>0))return 0; return Math.max(0,Math.floor((usable-other)/va+1e-9)); }
 function xfmrsNeeded(qty,perXfmr){ if(perXfmr<=0)return Infinity; return Math.ceil(qty/perXfmr-1e-9); }
-function checks(loads,mfr){
+function checks(loads,mfr,opt){
+  opt=opt||{};
   const out=[],add=(lvl,msg)=>out.push({lvl,msg});
   const live=loads.filter(l=>l.qty>0);
   const ctrls=live.filter(l=>l.meta&&l.meta.kind==='controller');
@@ -243,11 +272,24 @@ function checks(loads,mfr){
       .forEach(l=>add('bad',l.name+' belongs to the '+l.meta.line+' line but this transformer is '+line+'.'));
   }
   const dis=ctrls.filter(l=>l.meta.mfr==='Distech'),nDis=dis.reduce((s,l)=>s+l.qty,0);
+  const ecy=dis.filter(l=>l.meta.fam==='ecy'),nEcy=ecy.reduce((s,l)=>s+l.qty,0);
+  const ecb=dis.filter(l=>l.meta.fam!=='ecy');
   if(nDis>0){
-    if(dis.some(l=>l.meta.sep)&&nCtrl>1)add('bad','A Distech ECB-600 or ECx-400 family controller needs its own transformer. Move the other controllers off this one.');
-    else if(nDis>1)add('warn','Distech recommends one controller per transformer ('+nDis+' on this one).');
-    add('info','Distech: use a 4 A max fast-acting fuse on the external transformer secondary. Count all external loads (including Allure sensors) at maximum VA.');
+    if(nEcy>0&&nCtrl>1)add('bad','Distech Eclypse (ECY) controllers and ECY-PS24 supplies each need their own transformer. Move the other controllers and supplies to separate transformers.');
+    if(nEcy>0&&opt.R>0)ecy.forEach(l=>{if(l.meta.minXfmr&&opt.R<l.meta.minXfmr)add('bad',l.name+' needs a transformer rated '+l.meta.minXfmr+' VA minimum (this one is '+opt.R+' VA).')});
+    if(nEcy>0&&opt.meth&&opt.meth!=='ecy13')add('warn','ECY install guides size a transformer as controller allowance + 1.3 × other 24 VAC loads ≤ 100 VA. Switch the sizing method to the Distech ECY rule.');
+    if(dis.some(l=>l.meta.fam==='ecyvav')&&opt.meth==='distech13')add('info','ECY-VAV install guide states no 1.3x multiplier: it sums controller consumption and external loads against a 100 VA Class 2 transformer. The ECB/ECL 1.3x method is more conservative.');
+    if(dis.some(l=>l.meta.fam==='ecyvav'))add('info','ECY-VAV: daisy-chained power is not permitted above 15 VA (controller plus external loads); use star wiring from a close transformer.');
+    if(ecb.length>0&&opt.meth==='ecy13')add('warn','The Distech ECY rule is selected but ECB/ECL/ECx devices are on this transformer. ECB/ECL guides use Σ max VA × 1.3 ≤ 100 VA.');
+    if(ecb.some(l=>l.meta.sepRec)&&nCtrl>1)add('warn','Distech recommends a separate transformer for each ECB-600/ECL-600 and each ECx-400 module.');
+    else if(nEcy===0&&nDis>1)add('warn','Distech recommends one controller per transformer ('+nDis+' on this one).');
+    add('info','Distech: use a 4 A max fast-acting external fuse on the transformer secondary. Count all external loads (including Allure sensors) at maximum VA.');
   }
+  if(nEcy>0)add('info','ECY datasheets list 12 VA typical (no load) and a 60 VA (103/203/300) or 100 VA (400/600) total maximum. The sizing rule used here is the installation guide rule above. Subnet sensors and USB devices are external loads: add them as lines.');
+  live.filter(l=>l.meta&&l.meta.needsPS).forEach(l=>{
+    if(!ecy.some(x=>/PS24/.test(x.name)))add('warn',l.name.replace(/\s*\(powered.*$/,'')+' needs an ECY-PS24 on the transformer. Add the ECY-PS24 power supply.');
+    else add('info','ECY-S1000 uses 8.9 W of the ECY-PS24 30 W module budget. Check module count and 18 VDC loads in Distech Builder.');
+  });
   if(ctrls.some(l=>l.meta.mfr==='Honeywell')||mfr==='Honeywell')
     add('info','Honeywell: Optimizer VAV and Unitary max VA exclude SSR (triac) output loads. Add each connected output load as its own line; the 100 VA UL limit includes them.');
   if(ctrls.some(l=>l.meta.mfr==='JCI')||mfr==='JCI')
@@ -275,7 +317,9 @@ function tagsFor(m){
   if(m.verify)h+='<span class="tag v" title="Not confirmed against the official datasheet, or sources conflict">VERIFY</span>';
   if(m.calc)h+='<span class="tag c" title="VA computed as V x I">CALC</span>';
   if(m.dcmA)h+='<span class="tag d">12 VDC</span>';
-  if(m.sep)h+='<span class="tag d">OWN XFMR</span>';
+  if(m.fam==='ecy')h+='<span class="tag d" title="Install guide: separate transformer required">OWN XFMR</span>';
+  if(m.sepRec)h+='<span class="tag d" title="Install guide: separate transformer recommended">OWN XFMR (rec.)</span>';
+  if(m.base)h+='<span class="tag c" title="Fixed allowance in the sizing rule, not multiplied by 1.3">ALLOWANCE</span>';
   return h;
 }
 function addRow(name='',va='',qty=1,meta=null){
@@ -306,7 +350,7 @@ function fillLibrary(){
   const cs=$('ctrlSel'),ps=$('perSel');
   cs.innerHTML='';ps.innerHTML='';
   CONTROLLERS.filter(c=>m==='Any'||c.mfr===m).forEach(c=>{
-    const o=new Option((m==='Any'?c.mfr+' ':'')+c.name+'  ('+c.max+' VA max)'+(c.verify?'  [VERIFY]':''),c.id);cs.add(o)});
+    const o=new Option((m==='Any'?c.mfr+' ':'')+c.name+'  ('+(c.base?c.max+' VA allowance':c.needsPS?'18 VDC, 8.9 W':c.max+' VA max')+')'+(c.verify?'  [VERIFY]':''),c.id);cs.add(o)});
   PERIPHERALS.filter(p=>m==='Any'?p.line==='any':(p.line==='any'||p.line===m)).forEach(p=>{
     ps.add(new Option(p.name+'  ('+p.va+' VA)'+(p.verify?'  [VERIFY]':''),p.id))});
 }
@@ -316,7 +360,9 @@ function onMfr(){
 }
 $('addCtrl').onclick=()=>{
   const c=CONTROLLERS.find(x=>x.id===$('ctrlSel').value);if(!c)return;
-  addRow(c.mfr+' '+c.name,c.max,1,{kind:'controller',mfr:c.mfr,sep:c.sep,verify:c.verify,note:c.src+'. '+c.note});update()};
+  addRow(c.mfr+' '+c.name,c.max,1,{kind:c.kind||'controller',mfr:c.mfr,sepRec:c.sepRec,base:c.base,fam:c.fam,minXfmr:c.minXfmr,needsPS:c.needsPS,verify:c.verify,note:c.src+'. '+c.note});
+  if(c.mfr==='Distech'&&c.kind!=='module'){$('methSel').value=c.fam==='ecy'?'ecy13':c.fam==='ecyvav'?'cap100':'distech13'}
+  update()};
 $('addPer').onclick=()=>{
   const p=PERIPHERALS.find(x=>x.id===$('perSel').value);if(!p)return;
   addRow(p.name,p.va,1,{kind:'peripheral',line:p.line,verify:p.verify,calc:p.calc,dcmA:p.dcmA,note:p.src+'. '+p.note});update()};
@@ -328,8 +374,9 @@ function update(){
   const R=rating(),V=parseFloat($('volts').value)||0;
   const P=effPct(meth,R,parseFloat($('maxPct').value)||0);
   const loads=getLoads();
-  loads.forEach(l=>l.row.querySelector('.t').textContent=fmt(l.va*l.qty));
+  loads.forEach(l=>{l.w=(meth==='ecy13'&&!(l.meta&&l.meta.base))?1.3:1;l.row.querySelector('.t').textContent=fmt(l.va*l.qty)});
   const r=calc({rating:R,volts:V,pct:P,loads});
+  const allow=loads.reduce((s,l)=>s+(l.meta&&l.meta.base?l.va*l.qty:0),0);
   $('rLoad').textContent=fmt(r.connected)+' VA';
   $('rUsable').textContent=fmt(r.usable)+' VA';
   $('rRem').textContent=fmt(r.remaining)+' VA';
@@ -341,24 +388,27 @@ function update(){
   if(r.overRating){s.className='status bad';s.textContent=`OVERLOADED: ${fmt(r.connected)} VA exceeds the ${fmt(R)} VA rating by ${fmt(r.connected-R)} VA. Use a larger transformer or split the load.`}
   else if(r.over){s.className='status warn';s.textContent=`OVER LIMIT: ${fmt(r.loadPct)}% loaded, above ${lim} (still within the ${fmt(R)} VA rating).`}
   else{s.className='status ok';s.textContent=`OK: ${fmt(r.loadPct)}% loaded, ${fmt(r.remaining)} VA left within ${lim}.`}
-  const usF=meth==='distech13'?`Usable = min(${fmt(R)},100) ÷ 1.3 = ${fmt(r.usable)} VA`:
+  const otherRaw=r.raw-(meth==='ecy13'?allow:0);
+  const usF=meth==='ecy13'?`Limit = min(${fmt(R)},100) = ${fmt(r.usable)} VA`:meth==='distech13'?`Usable = min(${fmt(R)},100) ÷ 1.3 = ${fmt(r.usable)} VA`:
             meth==='cap100'?`Usable = min(${fmt(R)},100) = ${fmt(r.usable)} VA`:
             `Usable = ${fmt(R)} × ${fmt(P)}% = ${fmt(r.usable)} VA`;
-  $('formula').textContent=`Connected = Σ(VA × qty) = ${fmt(r.connected)} VA  |  ${usF}  |  I = VA ÷ V = ${fmt(r.connected)} ÷ ${fmt(V)} = ${fmt(r.amps)} A`;
+  const conF=meth==='ecy13'?`Required = ${fmt(allow)} (controller allowance) + 1.3 × ${fmt(otherRaw)} (other loads) = ${fmt(r.connected)} VA`:`Connected = Σ(VA × qty) = ${fmt(r.connected)} VA`;
+  $('formula').textContent=`${conF}  |  ${usF}  |  I = VA ÷ V = ${fmt(r.raw)} ÷ ${fmt(V)} = ${fmt(r.amps)} A`;
 
   const va=parseFloat($('fitVA').value)||0,oth=parseFloat($('fitOther').value)||0;
-  const m=maxFit(r.usable,oth,va);
+  const wA=meth==='ecy13'?1.3:1;
+  const m=maxFit(r.usable-allow,oth*wA,va*wA);
   $('fitMax').textContent=m;
-  $('fitFormula').textContent=`floor((${fmt(r.usable)} − ${fmt(oth)}) ÷ ${fmt(va)}) = ${m}`;
-  const more=maxFit(r.usable,r.connected,va);
+  $('fitFormula').textContent=wA===1?`floor((${fmt(r.usable)} − ${fmt(oth)}) ÷ ${fmt(va)}) = ${m}`:`floor((${fmt(r.usable)} − ${fmt(allow)} allowance − 1.3 × ${fmt(oth)}) ÷ (1.3 × ${fmt(va)})) = ${m}`;
+  const more=maxFit(r.usable,r.connected,va*wA);
   $('fitMore').textContent=more+' more';
-  $('fitMoreFormula').textContent=`floor((${fmt(r.usable)} − ${fmt(r.connected)}) ÷ ${fmt(va)}) = ${more}`;
+  $('fitMoreFormula').textContent=wA===1?`floor((${fmt(r.usable)} − ${fmt(r.connected)}) ÷ ${fmt(va)}) = ${more}`:`floor((${fmt(r.usable)} − ${fmt(r.connected)}) ÷ (1.3 × ${fmt(va)})) = ${more}`;
   const q=parseFloat($('needQty').value)||0;
   const nx=xfmrsNeeded(q,m);
   $('needXfmr').textContent=isFinite(nx)?nx:'—';
   $('needFormula').textContent=isFinite(nx)?`ceil(${q} ÷ ${m}) = ${nx} transformer(s) at ${fmt(R)} VA`:'Actuator VA exceeds usable capacity: none fit on one transformer of this size.';
 
-  const ck=checks(loads,mfr);
+  const ck=checks(loads,mfr,{R,meth});
   $('checks').innerHTML=ck.length?ck.map(c=>`<div class="chk ${c.lvl}">${esc(c.msg)}</div>`).join(''):'<div class="note">No flags.</div>';
 
   const n=$('necMsg');
@@ -376,20 +426,21 @@ $('methSel').onchange=update;
 $('resetBtn').onclick=()=>{$('loads').tBodies[0].innerHTML='';addRow('Actuator','',1);sel.value='100';$('volts').value=24;$('maxPct').value=80;$('mfrSel').value='Any';onMfr()};
 $('csvBtn').onclick=()=>{
   const R=rating(),loads=getLoads(),meth=$('methSel').value,P=effPct(meth,R,parseFloat($('maxPct').value)||0);
+  loads.forEach(l=>{l.w=(meth==='ecy13'&&!(l.meta&&l.meta.base))?1.3:1});
   const r=calc({rating:R,volts:parseFloat($('volts').value)||0,pct:P,loads});
   const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
   let c=`Tool,BAS Transformer Load Calculator v${VERSION}\nControl line,${$('mfrSel').value}\nSizing method,${meth}\nTransformer VA,${R}\nSecondary V,${$('volts').value}\nEffective max loading %,${fmt(P)}\n\nDevice,VA each,Qty,Total VA,Flags\n`;
   loads.forEach(l=>{const f=l.meta?[l.meta.verify?'VERIFY':'',l.meta.calc?'CALC':'',l.meta.dcmA?'12VDC':''].filter(Boolean).join(' '):'';
     c+=`${q(l.name)},${l.va},${l.qty},${l.va*l.qty},${q(f)}\n`});
   c+=`\nConnected VA,${fmt(r.connected)}\nUsable VA,${fmt(r.usable)}\nRemaining VA,${fmt(r.remaining)}\nSecondary A,${fmt(r.amps)}\n`;
-  checks(loads,$('mfrSel').value).forEach(k=>c+=`${q(k.lvl.toUpperCase()+': '+k.msg)}\n`);
+  checks(loads,$('mfrSel').value,{R,meth}).forEach(k=>c+=`${q(k.lvl.toUpperCase()+': '+k.msg)}\n`);
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:'text/csv'}));a.download='transformer_load.csv';a.click();
 };
 /* library table */
 (function(){
   const tb=$('libTbl').tBodies[0];
   const row=(n,t,m,s)=>tb.insertAdjacentHTML('beforeend',`<tr><td>${n}</td><td>${t}</td><td>${m}</td><td>${s}</td></tr>`);
-  CONTROLLERS.forEach(c=>row(esc(c.mfr+' '+c.name)+(c.verify?' <span class="tag v">VERIFY</span>':''),c.typ==null?'—':c.typ,c.max,esc(c.src+'. '+c.note)));
+  CONTROLLERS.forEach(c=>row(esc(c.mfr+' '+c.name)+(c.verify?' <span class="tag v">VERIFY</span>':''),c.typ==null?'—':c.typ,c.max+(c.base?' (allowance)':''),esc(c.src+'. '+c.note)));
   PERIPHERALS.forEach(p=>row(esc(p.name)+(p.verify?' <span class="tag v">VERIFY</span>':'')+(p.calc?' <span class="tag c">CALC</span>':''),'—',p.va+(p.dcmA?' (+'+p.dcmA+' mA @12 VDC)':''),esc(p.src+'. '+p.note)));
 })();
 fillLibrary();
