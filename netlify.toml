@@ -1,0 +1,13 @@
+# Static site: no build step, no functions (uses no Netlify build credits beyond the deploy itself).
+[build]
+  publish = "."
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache"
