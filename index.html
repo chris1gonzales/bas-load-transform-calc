@@ -10,7 +10,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
-<title>BAS Transformer Load Calculator v1.2.8</title>
+<title>BAS Transformer Load Calculator v1.4.0</title>
 <style>
 :root{--bg:#0e1114;--panel:#161b20;--line:#2a323a;--amber:#ffb000;--cyan:#27d3e6;--ok:#4cd964;--bad:#ff5a4d;--txt:#d7dde3;--dim:#8a96a3}
 *{box-sizing:border-box}
@@ -56,7 +56,7 @@ details summary{cursor:pointer;color:var(--cyan)}
 </head>
 <body>
 <h1>BAS TRANSFORMER LOAD CALCULATOR</h1>
-<div class="ver">v1.2.8 &middot; Class 2 / 24 VAC control transformer sizing &middot; library data 2026-11-04</div>
+<div class="ver">v1.4.0 &middot; Class 2 / 24 VAC control transformer sizing &middot; library data 2026-11-04</div>
 
 <div class="panel">
   <h2>0 &middot; Control line &amp; sizing method</h2>
@@ -97,6 +97,7 @@ details summary{cursor:pointer;color:var(--cyan)}
   </table>
   <div class="addrow"><select id="ctrlSel"></select><button id="addCtrl">+ Add controller</button></div>
   <div class="addrow"><select id="perSel"></select><button id="addPer">+ Add relay / device</button></div>
+  <div class="addrow"><select id="belSel"></select><button id="addBel">+ Add Belimo actuator (24 V)</button></div>
   <div class="row-actions">
     <button id="addBtn">+ Add load</button>
     <button id="addAct">+ Add actuator</button>
@@ -120,6 +121,7 @@ details summary{cursor:pointer;color:var(--cyan)}
 <div class="panel">
   <h2>4 &middot; How many actuators fit?</h2>
   <div class="grid">
+    <div><label>Belimo actuator (fills VA each, optional)</label><select id="fitBel"></select></div>
     <div><label>Actuator VA each</label><input id="fitVA" type="number" min="0.01" step="any" value="10"></div>
     <div><label>Other (non-actuator) load already on transformer (VA)</label><input id="fitOther" type="number" min="0" step="any" value="0"></div>
   </div>
@@ -164,8 +166,9 @@ details summary{cursor:pointer;color:var(--cyan)}
   <button id="resetBtn">Reset</button>
 </div>
 
+<script src="belimo-devices-v1.1.0.js"></script>
 <script>
-const VERSION='1.3.0';
+const VERSION='1.4.0';
 const COMMON_VA=[20,40,50,75,92,100,150,200,250,300,500];
 const $=id=>document.getElementById(id);
 const fmt=n=>(Math.round(n*100)/100).toString();
@@ -424,6 +427,32 @@ function update(){
 }
 
 $('addBtn').onclick=()=>{addRow();update()};
+
+/* ---------- Belimo 24 V actuator library (catalog VA; belimo-devices-v1.1.0.js) ---------- */
+function belLabel(b){return b.m+'  ('+b.va+' VA)'}
+function fillBelimo(){
+  const bs=$('belSel'),fs=$('fitBel');
+  bs.innerHTML='';fs.innerHTML='';
+  fs.add(new Option('- pick a Belimo model -',''));
+  if(typeof BELIMO_24V==='undefined'){bs.add(new Option('Belimo data file not loaded',''));return}
+  const grp={},grp2={};
+  BELIMO_24V.forEach((b,i)=>{
+    if(!grp[b.g]){grp[b.g]=document.createElement('optgroup');grp[b.g].label=b.g;bs.appendChild(grp[b.g]);
+                  grp2[b.g]=document.createElement('optgroup');grp2[b.g].label=b.g;fs.appendChild(grp2[b.g])}
+    grp[b.g].appendChild(new Option(belLabel(b),i));grp2[b.g].appendChild(new Option(belLabel(b),i));
+  });
+}
+function belNote(b){
+  return 'Belimo 2026 US Product Guide & Price List, p.'+b.p+': '+b.va+' VA'+(b.rw!=null?', '+b.rw+' W running':'')+(b.hw!=null?', '+b.hw+' W holding':'')+'. 24 V model. '+(b.n?b.n+'. ':'')+'Transformer sizing uses VA.';
+}
+$('addBel').onclick=()=>{
+  if(typeof BELIMO_24V==='undefined')return;
+  const b=BELIMO_24V[parseInt($('belSel').value,10)];if(!b)return;
+  addRow('Belimo '+b.m,b.va,1,{kind:'peripheral',line:'any',note:belNote(b)});update()};
+$('fitBel').onchange=()=>{
+  if(typeof BELIMO_24V==='undefined')return;
+  const b=BELIMO_24V[parseInt($('fitBel').value,10)];if(!b)return;
+  $('fitVA').value=b.va;update()};
 $('addAct').onclick=()=>{addRow('Actuator','',1);update()};
 ['xfmrSel','xfmrCustom','volts','maxPct','fitVA','fitOther','needQty'].forEach(id=>$(id).oninput=update);
 sel.onchange=update;
@@ -482,7 +511,7 @@ $('xlsBtn').onclick=()=>{
   CONTROLLERS.forEach(c=>row(esc(c.mfr+' '+c.name)+(c.verify?' <span class="tag v">VERIFY</span>':''),c.typ==null?'—':c.typ,c.max+(c.base?' (allowance)':''),esc(c.src+'. '+c.note)));
   PERIPHERALS.forEach(p=>row(esc(p.name)+(p.verify?' <span class="tag v">VERIFY</span>':'')+(p.calc?' <span class="tag c">CALC</span>':''),'—',p.va+(p.dcmA?' (+'+p.dcmA+' mA @12 VDC)':''),esc(p.src+'. '+p.note)));
 })();
-fillLibrary();
+fillLibrary();fillBelimo();
 addRow('Actuator','',1);update();
 }
 if('serviceWorker' in navigator&&location.protocol.startsWith('http')){
